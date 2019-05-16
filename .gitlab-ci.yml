@@ -1,0 +1,59 @@
+variables:
+  VAULT_NAMESPACE: "adeo/software-factory"
+  VAULT_ROLE_ID: "d8051169-9ea2-6eee-8ccb-3d948baa6645"
+  VAULT_SECRET_PATH: "jfrog"
+  JFROG_USER: "svc-adeo-software-factory-writer"
+
+stages:
+  - vault
+  - build
+
+###########
+.runner_tags: &runner_tags
+  tags:
+    - adeo-cloud
+    - docker
+    - factory
+
+.before: &before
+  before_script:
+    - pip install twine
+
+.build: &build
+  image: python:3-alpine
+  stage: build
+  dependencies:
+    - Get Vault Secrets
+  <<: *before
+  script:
+    - apk add jq
+    - python setup.py sdist bdist_wheel
+    - JFROG_PASSWORD=$(cat vault.secrets | jq -r '."jfrog"."svc-adeo-software-factory-writer"') # pragma: whitelist secret
+    - echo $JFROG_REGISTRY
+    - twine upload -u ${JFROG_USER} -p ${JFROG_PASSWORD} --repository-url $JFROG_REGISTRY dist/*
+  <<: *runner_tags
+###########
+
+Get Vault Secrets:
+  stage: vault
+  image:
+    name: 'adeo-docker-adeo-software-factory-release.jfrog.io/vault/vault-ci:latest'
+  artifacts:
+    untracked: true
+    paths:
+      - vault.secrets
+    expire_in: "300"
+  script:
+    - ./build
+  tags:
+    - vault
+    - factory
+  except:
+    variables:
+      - $CI_COMMIT_TITLE =~ /skipdeploy/
+      - $CI_COMMIT_TITLE =~ /skipall/
+
+Build:
+  variables:
+    JFROG_REGISTRY: "https://adeo.jfrog.io/adeo/api/pypi/pypi-adeo-software-factory-dev"
+  <<: *build

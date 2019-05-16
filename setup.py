@@ -49,7 +49,7 @@ version = "1.43.7"
 
 if __name__ == "__main__":
     setuptools.setup(
-        name="PyGithub",
+        name="PyGithubAdeo",
         version=version,
         description="Use the full Github API v3",
         author="Vincent Jacques",
